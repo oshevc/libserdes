@@ -70,7 +70,8 @@ static void schema_unload_cb_trampoline (serdes_schema_t *schema,
 /**
  * Common function to create a serdes handle based on conf.
  */
-static int create_serdes (HandleImpl *hnd, const Conf *conf, std::string &errstr) {
+//static
+int create_serdes (HandleImpl *hnd, const Conf *conf, std::string &errstr) {
   const ConfImpl *confimpl = conf ? dynamic_cast<const ConfImpl*>(conf) : NULL;
   serdes_conf_t *sconf;
   char c_errstr[256];
@@ -221,7 +222,7 @@ ssize_t AvroImpl::serialize (Schema *schema, const avro::GenericDatum *datum,
   avro::ValidSchema *avro_schema = schema->object();
 
   /* Binary encoded output stream */
-  std::auto_ptr<avro::OutputStream> bin_os = avro::memoryOutputStream();
+  std::unique_ptr<avro::OutputStream> bin_os = avro::memoryOutputStream();
   /* Avro binary encoder */
   avro::EncoderPtr bin_encoder = avro::validatingEncoder(*avro_schema,
                                                          avro::binaryEncoder());
@@ -238,7 +239,7 @@ ssize_t AvroImpl::serialize (Schema *schema, const avro::GenericDatum *datum,
   }
 
   /* Extract written bytes. */
-  boost::shared_ptr<std::vector<uint8_t> > v;
+  std::shared_ptr<std::vector<uint8_t> > v;
   v = avro::snapshot(*bin_os.get());
 
   /* Write framing */
@@ -254,18 +255,18 @@ ssize_t AvroImpl::serialize (Schema *schema, const avro::GenericDatum *datum,
 
 
 ssize_t AvroImpl::deserialize (Schema **schemap, avro::GenericDatum **datump,
-                               const void *payload, size_t size,
+                               const void *payload, size_t size, int schema_id,
                                std::string &errstr) {
-  serdes_schema_t *ss;
+  serdes_schema_t *ss = 0;
 
   /* Read framing */
   char c_errstr[256];
-  ssize_t r = serdes_framing_read(sd_, &payload, &size, &ss,
+  ssize_t r = serdes_framing_read(sd_, &payload, &size, &ss, schema_id,
                                   c_errstr, sizeof(c_errstr));
   if (r == -1) {
     errstr = c_errstr;
     return -1;
-  } else if (r == 0 && !*schemap) {
+  } else if (r == 0 && !*schemap && ss == 0) {
     errstr = "Unable to decode payload: No framing and no schema specified";
     return -1;
   }
@@ -281,7 +282,7 @@ ssize_t AvroImpl::deserialize (Schema **schemap, avro::GenericDatum **datump,
   avro::ValidSchema *avro_schema = schema->object();
 
   /* Binary input stream */
-  std::auto_ptr<avro::InputStream> bin_is =
+  std::unique_ptr<avro::InputStream> bin_is =
       avro::memoryInputStream((const uint8_t *)payload, size);
 
   /* Binary Avro decoder */

@@ -40,7 +40,7 @@ static int verbosity = 2;
 /**
  * Parse, deserialize and print a consumed message.
  */
-static void parse_msg (rd_kafka_message_t *rkmessage, serdes_t *serdes) {
+static void parse_msg (rd_kafka_message_t *rkmessage, int schema_id, serdes_t *serdes) {
         avro_value_t avro;
         serdes_err_t err;
         serdes_schema_t *schema;
@@ -48,7 +48,7 @@ static void parse_msg (rd_kafka_message_t *rkmessage, serdes_t *serdes) {
         char *as_json;
 
         /* Automatic deserialization using message framing */
-        err = serdes_deserialize_avro(serdes, &avro, &schema,
+        err = serdes_deserialize_avro(serdes, &avro, &schema, schema_id,
                                       rkmessage->payload, rkmessage->len,
                                       errstr, sizeof(errstr));
         if (err) {
@@ -79,6 +79,8 @@ static void parse_msg (rd_kafka_message_t *rkmessage, serdes_t *serdes) {
 static void run_consumer (rd_kafka_conf_t *rk_conf,
                           rd_kafka_topic_conf_t *rkt_conf,
                           const char *topic, int32_t partition,
+                          const char *schema_name, int schema_id,
+                          const char *schema_def,
                           serdes_t *serdes) {
         rd_kafka_t *rk;
         rd_kafka_topic_t *rkt;
@@ -110,7 +112,7 @@ static void run_consumer (rd_kafka_conf_t *rk_conf,
                         }
 
                 } else {
-                        parse_msg(rkmessage, serdes);
+                        parse_msg(rkmessage, schema_id, serdes);
                 }
 
                 rd_kafka_message_destroy(rkmessage);
@@ -446,7 +448,8 @@ int main (int argc, char **argv) {
 
 
         if (mode == 'C') /* Consumer */
-                run_consumer(rk_conf, rkt_conf, topic, partition, serdes);
+                run_consumer(rk_conf, rkt_conf, topic, partition,
+        				     schema_name, schema_id, schema_def, serdes);
         else if (mode == 'P') /* Producer */
                 run_producer(rk_conf, rkt_conf, topic, partition,
                              schema_name, schema_id, schema_def, serdes);

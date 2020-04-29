@@ -115,14 +115,14 @@ serdes_err_t serdes_conf_set (serdes_conf_t *sconf,
                         sconf->deserializer_framing = framing;
 
         } else if (!strcmp(name, "debug")) {
-                if (!strcmp(val, "all"))
+                if (!strcmp(val, "all") || strstr(val, "serdes") )
                         sconf->debug = 1;
                 else if (!strcmp(val, "") || !strcmp(val, "none"))
                         sconf->debug = 0;
                 else {
                         snprintf(errstr, errstr_size,
                                  "Invalid value for %s, allowed values: "
-                                 "all, none", name);
+                                 "all, serdes, none", name);
                         return SERDES_ERR_CONF_INVALID;
                 }
         } else {

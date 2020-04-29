@@ -29,7 +29,7 @@ extern "C" {
 namespace Serdes {
 
 
-  std::string err2str (ErrorCode err) {
+  inline std::string err2str (ErrorCode err) {
     return std::string(serdes_err2str(static_cast<serdes_err_t>(err)));
   }
 
@@ -169,7 +169,7 @@ namespace Serdes {
                        std::vector<char> &out, std::string &errstr);
 
     ssize_t deserialize (Schema **schemap, avro::GenericDatum **datump,
-                         const void *payload, size_t size, std::string &errstr);
+                         const void *payload, size_t size, int schema_id, std::string &errstr);
 
     ssize_t serializer_framing_size () const {
       return dynamic_cast<const HandleImpl*>(this)->serializer_framing_size();

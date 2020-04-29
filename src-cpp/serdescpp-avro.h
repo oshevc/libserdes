@@ -54,7 +54,7 @@ public:
    * returns -1 and sets `errstr` accordingly.
    */
   virtual ssize_t deserialize (Schema **schemap, avro::GenericDatum **datump,
-                               const void *payload, size_t size,
+                               const void *payload, size_t size, int schema_id,
                                std::string &errstr) = 0;
 };
 

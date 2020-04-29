@@ -80,7 +80,7 @@ serdes_err_t serdes_schema_deserialize_avro (serdes_schema_t *schema,
  * Same error semantics as `serdes_schema_deserialize_avro()`
  */
 serdes_err_t serdes_deserialize_avro (serdes_t *serdes, avro_value_t *avro,
-                                      serdes_schema_t **schemap,
+                                      serdes_schema_t **schemap,  int schema_id,
                                       const void *payload, size_t size,
                                       char *errstr, int errstr_size);
 

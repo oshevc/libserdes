@@ -124,10 +124,15 @@ static ssize_t serdes_framing_cp1_read (const void **payloadp, size_t *sizep,
 
 
 ssize_t serdes_framing_read (serdes_t *sd, const void **payloadp, size_t *sizep,
-                             serdes_schema_t **schemap,
+                             serdes_schema_t **schemap, int schema_id,
                              char *errstr, int errstr_size) {
         serdes_schema_t *schema = NULL;
-        int schema_id = -1;
+
+		// Reuse the schema if provided
+        if (schemap)
+            schema = *schemap;
+
+        //int schema_id = -1;
         ssize_t r;
 
         switch (sd->sd_conf.deserializer_framing)
@@ -150,8 +155,12 @@ ssize_t serdes_framing_read (serdes_t *sd, const void **payloadp, size_t *sizep,
 
         if (r == -1)
                 return -1; /* Error */
-        else if (r == 0)
+        else if (r == 0 && schema_id < 0)
                 return 0;  /* No framing */
+
+        // DO NOT try to load schema if it is already loaded and has the same id as in framing
+        if (schema && serdes_schema_id(schema) == schema_id)
+            return r;
 
         if (!(schema = serdes_schema_get(sd, NULL, schema_id,
                                          errstr, errstr_size)))

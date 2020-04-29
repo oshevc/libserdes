@@ -318,5 +318,5 @@ size_t serdes_framing_write (serdes_schema_t *schema, char *payload, size_t size
  * '*sizep' is updated to to exclude the framing size.
  */
 ssize_t serdes_framing_read (serdes_t *sd, const void **payloadp, size_t *sizep,
-                             serdes_schema_t **schemap,
+                             serdes_schema_t **schemap, int schema_id,
                              char *errstr, int errstr_size);

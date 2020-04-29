@@ -71,7 +71,7 @@ static int avro2json (Serdes::Schema *schema, const avro::GenericDatum *datum,
 
   /* JSON output stream */
   std::ostringstream oss;
-  std::auto_ptr<avro::OutputStream> json_os = avro::ostreamOutputStream(oss);
+  std::unique_ptr<avro::OutputStream> json_os = avro::ostreamOutputStream(oss);
 
   try {
     /* Encode Avro datum to JSON */
@@ -95,13 +95,13 @@ static int avro2json (Serdes::Schema *schema, const avro::GenericDatum *datum,
  * the given prefix
  */
 static void decode_and_print (const std::string &pfx,
-                              const void *buf, size_t len) {
+                              const void *buf, size_t len, int schema_id) {
   std::string out;
   avro::GenericDatum *d = NULL;
   Serdes::Schema *schema = NULL;
   std::string errstr;
 
-  if (serdes->deserialize(&schema, &d, buf, len, errstr) == -1 ||
+  if (serdes->deserialize(&schema, &d, buf, len, schema_id, errstr) == -1 ||
       avro2json(schema, d, out, errstr) == -1) {
     std::cout << "\"" << pfx << "_error\": \"" << errstr << "\", ";
 
@@ -121,7 +121,7 @@ static void decode_and_print (const std::string &pfx,
  * Handle consumed message.
  * Will be either a proper message or an event/error.
  */
-static void msg_handle (RdKafka::Message *msg) {
+static void msg_handle (RdKafka::Message *msg, int schema_id) {
   switch (msg->err()) {
     case RdKafka::ERR__TIMED_OUT:
       break;
@@ -138,7 +138,7 @@ static void msg_handle (RdKafka::Message *msg) {
       if (msg->key()) {
         /* Decode Key */
         if (key_serialized)
-          decode_and_print("key", msg->key()->c_str(), msg->key_len());
+          decode_and_print("key", msg->key()->c_str(), msg->key_len(), schema_id);
         else
           std::cout << "\"key\": \"" << msg->key() << "\", "
                     << "\"key_len\": " << (int)msg->key_len() << ", ";
@@ -147,7 +147,7 @@ static void msg_handle (RdKafka::Message *msg) {
       if (msg->payload()) {
         /* Decode payload */
         if (payload_serialized)
-          decode_and_print("payload", msg->payload(), msg->len());
+          decode_and_print("payload", msg->payload(), msg->len(), schema_id);
         else
           std::cout << "\"payload\": \"" << (const char *)msg->payload() << "\", "
                     << "\"payload_len\": " << (int)msg->len() << ", ";
@@ -219,7 +219,7 @@ int main (int argc, char **argv) {
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
 
-
+  std::string schema_name;
   /* Create serdes configuration object.
    * Configuration passed through -X prop=val will be set on this object,
    * which is later passed to the serdes handle creator. */
@@ -244,7 +244,7 @@ int main (int argc, char **argv) {
 
   /* Command line argument parsing */
   int opt;
-  while ((opt = getopt(argc, argv, "b:g:r:X:vqD:")) != -1) {
+  while ((opt = getopt(argc, argv, "b:g:r:s:X:vqD:")) != -1) {
     switch (opt)
     {
       case 'b':
@@ -261,6 +261,10 @@ int main (int argc, char **argv) {
       case 'r':
         if (sconf->set("schema.registry.url", optarg, errstr) != SERDES_ERR_OK)
           FATAL("Failed to set registry.url: " << errstr);
+        break;
+
+      case 's':
+        schema_name = optarg;
         break;
 
       case 'D':
@@ -326,6 +330,16 @@ int main (int argc, char **argv) {
     }
   }
 
+
+  int schema_id = -1;
+
+  /* If schema name is an integer treat it as schema id. */
+  if (!schema_name.empty() &&
+      schema_name.find_first_not_of("0123456789") == std::string::npos) {
+    schema_id = atoi(schema_name.c_str());
+    schema_name.clear();
+  }
+
   /* Remaining arguments are topics to subscribe to */
   if (optind == argc) {
     std::cerr << "% No topics to subscribe to" << std::endl;
@@ -371,7 +385,7 @@ int main (int argc, char **argv) {
   while (run) {
     /* Consume one message (or event) */
     RdKafka::Message *msg = consumer->consume(1000);
-    msg_handle(msg);
+    msg_handle(msg, schema_id);
     delete msg;
   }
 

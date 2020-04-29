@@ -49,19 +49,23 @@ serdes_err_t serdes_schema_deserialize_avro (serdes_schema_t *ss,
 
 
 serdes_err_t serdes_deserialize_avro (serdes_t *sd, avro_value_t *avro,
-                                      serdes_schema_t **schemap,
+                                      serdes_schema_t **schemap, int schema_id,
                                       const void *payload, size_t size,
                                       char *errstr, int errstr_size) {
-        serdes_schema_t *ss;
+        serdes_schema_t *ss = NULL;
+        // Reuse the scheama if provided
+        if (schemap)
+            ss = *schemap;
+
         ssize_t r;
 
         /* "Schema-less" (we look up the schema for the application)
          * deserialization requires message framing so we can figure
          * out the schema id. */
-        r = serdes_framing_read(sd, &payload, &size, &ss, errstr, errstr_size);
+        r = serdes_framing_read(sd, &payload, &size, &ss, schema_id, errstr, errstr_size);
         if (r == -1)
                 return SERDES_ERR_PAYLOAD_INVALID;
-        else if (r == 0) {
+        else if (r == 0 && schema_id < 0) {
                 snprintf(errstr, errstr_size,
                          "\"deserializer.framing\" not configured");
                 return SERDES_ERR_SCHEMA_REQUIRED;
